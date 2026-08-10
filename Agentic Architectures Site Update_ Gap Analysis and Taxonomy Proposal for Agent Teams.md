@@ -1,0 +1,142 @@
+# Updating the Agentic Architectures Site: Gap Analysis, Merge Rigor, and Proposed Taxonomy
+
+## TL;DR
+
+- The site already covers 70 patterns across 14 parts and is stronger than most public catalogs, but it is missing Anthropic’s **Agent Teams** (confirmed absent) and a couple of genuinely distinct 2025–2026 coordination mechanisms; most other “missing” patterns named in the brief are rebrands of things already listed.
+- Only **three** additions are genuinely new or under-served top-level architectures: **Agent Teams** (peer-coordinated, shared-task-list + mailbox — the clear headline gap), a properly disambiguated **Handoff Routing** pattern (the site’s “Swarm” is overloaded), and a small **Network/Mesh** topology sub-variant; everything else (CrewAI Crews/Flows, AutoGen GroupChat, Semantic Kernel/Magentic presets, Google ADK workflow agents, MoE routing, pub/sub, debate) maps onto existing entries and should be added as labeled sub-patterns, not new pages.
+- Recommended action: add Agent Teams as its own page in Part IV; restructure the multi-agent control-topology entries (Orchestrator-Worker / Supervisor / Hierarchical Teams / Handoff Routing / Agent Teams) into one coherent family organized by “who decides next” and “how agents communicate”; fold framework-specific names in as exemplars; and merge/deduplicate a few redundant site entries.
+
+## Key Findings
+
+### Site inventory (current state)
+
+The documentation covers **70 patterns in 14 Parts**: Core Patterns (1–10), Quality/Oversight (11–13), Pipelines & Cost (14–18), Multi-Agent Collaboration (19–26), Reasoning (27–30), Domain Apps (31–34), Cognitive (35–36), Advanced Planning & Search (37–41), Protocols (42–45), Memory (46–52), Safety & Resilience (53–58), Infrastructure (59–62), Embodied (63–65), and Frameworks/Meta (66–70).
+
+Directly relevant existing entries and how the site defines them (verbatim where quoted):
+
+- **#5 Orchestrator-Worker** (Med-High, 1+N): “unpredictable task decomposition.”
+- **#6 Supervisor (Hierarchical)**: “a central supervisor agent that controls all communication flow and task delegation… receives the agent’s output, and determines the next step. Unlike the Orchestrator-Worker pattern, the supervisor maintains an ongoing conversation and can re-invoke agents iteratively.”
+- **#9 Swarm (Decentralized Handoff)**: “multiple peer agents to dynamically hand off control to one another based on their specializations. There is no central supervisor… Each agent has handoff tools that allow it to pass context to another agent. The system tracks which agent is currently active.” 
+- **#10 Hierarchical Teams**: “large-scale enterprise workflows.”
+- **#24 Role-Based Collaboration** — explicitly titled on-page “24. Role-Based Collaboration (CrewAI-style).”
+- **#25 Conversational Multi-Agent** — explicitly titled on-page “25. Conversational Multi-Agent (AutoGen-style).”
+- **#19 Blackboard**, **#20 Market-Based/Bidding**, **#21 Contract Net**, **#22 Debate/Adversarial**, **#23 Red-Team**, **#26 Event-Driven Multi-Agent**, **#15 Mixture-of-Agents**, **#16 DAG Orchestration**, **#17 Plan-and-Execute** are all present.
+
+**Confirmed gap:** There is no “Agent Teams” page and no entry anywhere in the taxonomy describing a lead-formed, peer-coordinated team with a shared claimable task list plus direct agent-to-agent messaging. This is the single clearest omission and the highest-value addition.
+
+### The headline addition: Agent Teams (Anthropic / Claude Code)
+
+Agent Teams is an experimental Claude Code feature (enable with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), shipped as a research preview alongside Claude Opus 4.6 on February 5, 2026, and documented officially at code.claude.com/docs/en/agent-teams (page current as of v2.1.178). Its coordination mechanism is distinct from everything on the site:
+
+- **One session is the “team lead”** that spawns teammates, creates tasks, and synthesizes results (“One session acts as the team lead, coordinating work, assigning tasks, and synthesizing results”).  
+- **Teammates are fully independent**, each with its own context window — they load the same project context (CLAUDE.md, MCP servers, skills) plus the lead’s spawn prompt, but “the lead’s conversation history does not carry over.”
+- **A shared task list** coordinates work: tasks have three states — pending, in progress, completed — support dependencies (“a pending task with unresolved dependencies cannot be claimed until those dependencies are completed”),  and support both lead-assignment and teammate **self-claim** (“after finishing a task, a teammate picks up the next unassigned, unblocked task on its own”).  Claiming “uses file locking to prevent race conditions.”  Stored at `~/.claude/tasks/{team-name}/`.
+- **A mailbox messaging system** lets teammates message each other directly, by name, via a `SendMessage` primitive; each agent’s mailbox is a JSON file at `~/.claude/teams/{team-name}/inboxes/{agent-name}.json`;  delivery is automatic and the lead does not need to poll or relay (“when teammates send messages, they’re delivered automatically to recipients. The lead doesn’t need to poll for updates”).  Message types include task assignment, direct message, broadcast, shutdown request/response, plan-approval request/response, and idle notification.
+- **Anthropic’s own stress test** (engineering post “Building a C compiler with a team of parallel Claudes,” Nicholas Carlini): “I tasked 16 agents with writing a Rust-based C compiler… Over nearly 2,000 Claude Code sessions and $20,000 in API costs, the agent team produced a 100,000-line compiler that can build Linux 6.9 on x86, ARM, and RISC-V.”  Over two weeks Opus 4.6 consumed 2 billion input tokens and generated 140 million output tokens,   with a reported 99% pass rate on the GCC torture suite. 
+
+The official docs draw exactly the contrast the site is missing: **Subagents** “only report results back to the main agent and never talk to each other,”  whereas in agent teams “teammates share a task list, claim work, and communicate directly with each other.”  
+
+### The framework landscape — genuinely distinct vs. rebrand
+
+**Anthropic multi-agent research system (orchestrator-worker):** A lead agent plans and saves the plan to memory, spawns 3–5 parallel subagents with isolated context windows,  then a separate CitationAgent adds citations. Per Anthropic’s engineering post “How we built our multi-agent research system,” a lead Claude Opus 4 agent with Claude Sonnet 4 subagents “outperformed single-agent Claude Opus 4 by 90.2%  on our internal research eval”; token usage explained about 80% of performance variance, and multi-agent systems “use about 15× more tokens than chat interactions.”  → **Already covered** by #5 Orchestrator-Worker. Anthropic’s “Subagents” (isolated, report-back-only) are the concrete instance of orchestrator-worker; worth naming explicitly as a sub-pattern and as the necessary contrast partner for Agent Teams.
+
+**LangGraph supervisor / swarm / hierarchical / network(mesh):**
+
+- Supervisor = site #6. Hierarchical (nested `create_supervisor` chains) = site #10.  Swarm (Command-based direct handoffs, `Command(goto=..., graph=Command.PARENT)`)  = site #9. → All covered. (Note: LangChain now recommends the tool-calling supervisor pattern directly over the standalone `langgraph-supervisor` library for most cases.) 
+- **Network / mesh** (“any agent can reach any other agent at any time… no set order and no set chain”)  is the one LangGraph topology the site does not cleanly name. The site’s #59 “Agentic Mesh” is enterprise infrastructure (registry/discovery/governance), not a control topology, so mesh/network is a small genuine gap best handled as a sub-pattern under a control-topology family.
+
+**CrewAI Crews vs Flows:** Crews = role-based autonomous collaboration = site #24 (already “CrewAI-style”). **Flows** are an event-driven, deterministic orchestration layer (decorators `@start`/`@listen`/`@router`, Pydantic state, branching/loops, can wrap multiple Crews)  — this is a workflow-graph/state-machine orchestrator, i.e., a variant of **DAG Orchestration (#16)** / event-driven, not a new coordination mechanism. → Covered; add “CrewAI Flows” as a named exemplar under DAG/Graph Orchestration.
+
+**AutoGen / AG2 GroupChat, nested chats, round-robin/sequential:** GroupChat (a GroupChatManager selects the next speaker and broadcasts each message to all others; selection strategies: `round_robin`, `random`, `manual`, auto/LLM)  = site #25 Conversational Multi-Agent (already “AutoGen-style”). Round-robin and sequential are *speaker-selection strategies*, not architectures. Nested chats package a workflow as a single agent (composition),  also not a distinct coordination mechanism. → All covered.
+
+**OpenAI Swarm / OpenAI Agents SDK handoffs:** Swarm (October 2024, explicitly experimental/educational) was replaced by the OpenAI Agents SDK (March 2025, production-ready; v0.17.1 shipped May 11, 2026).  Core primitive: **handoffs** — a handoff is a tool call that switches the active agent while carrying the full conversation history.  This is the same decentralized-handoff mechanism as site #9 Swarm. → Covered mechanism, but see the naming problem below.
+
+**Microsoft Semantic Kernel / Agent Framework:** Five built-in orchestration patterns — Sequential, Concurrent, Handoff, Group Chat, Magentic (now unified under Microsoft Agent Framework, which merges AutoGen and Semantic Kernel).  Sequential = Prompt Chaining/DAG; Concurrent = Parallelization/Map-Reduce; Group Chat = #25; Handoff = #9; **Magentic** = the productized Magentic-One pattern. → All map to existing entries.
+
+**Magentic-One (Microsoft Research / AutoGen):** An Orchestrator running, per the Microsoft Research paper (arXiv 2411.04468), “an outer loop where it updates the Task Ledger [facts, guesses, plan] and an inner loop [where it updates] the Progress Ledger [self-reflection on progress, re-planning],”  directing specialized agents (WebSurfer, FileSurfer, Coder, ComputerTerminal);  the default LLM is GPT-4o.   This is a supervisor/orchestrator with explicit planning + re-planning + progress tracking — a hybrid of **Supervisor (#6)** and **Plan-and-Execute (#17)**. → Covered; best listed as a named exemplar, not a new top-level pattern.
+
+**Google ADK workflow agents:** SequentialAgent, ParallelAgent, LoopAgent (deterministic “template” workflow agents),  plus LLM-driven `LlmAgent` transfer. Sequential = #2/#16; Parallel = #4; Loop = reflection/iteration; transfer = routing/handoff. → All covered.
+
+**Planner–Executor (ReWOO, LLMCompiler, ADaPT):** The site has **#17 Plan-and-Execute** (plan → execute → replan, per LangChain’s planning-agents framing). The broader planner–executor family — ReWOO (variable-passing so the planner isn’t re-called per step), LLMCompiler (streams a DAG of tasks for parallel execution),  ADaPT (recursive decompose-on-failure, reporting +28.3 points over plan-and-execute on ALFWorld)  — is a family of variants of the same separation-of-planning-from-execution architecture. → Covered by #17; the DAG-parallel variant (LLMCompiler) also overlaps #16. Treat these as named sub-patterns under Plan-and-Execute rather than a new entry.
+
+**Mixture-of-Experts (MoE) agent routing:** MoE is a *within-model* routing mechanism (a gating network activates a few expert sub-networks per token; e.g., Mixtral 8x7B activates 2 of 8),  architecturally different from *between-agent* routing. The site’s #15 Mixture-of-Agents is the model-level ensemble (layered LLMs whose outputs are aggregated/routed).  “Mixture of expert agents” (a meta-agent routing queries to specialist agents) is just **Routing (#3)** applied to specialists. → Covered; add a one-line clarifying note distinguishing MoE (intra-model, out of scope) from MoA (#15) and Routing (#3).
+
+**Event-driven / pub-sub agent architectures:** Confluent’s four canonical pub/sub patterns (orchestrator-worker, hierarchical, blackboard, market-based)  map exactly onto site #5/#10/#19/#20; pub/sub itself is a transport/coordination substrate = site #26 Event-Driven Multi-Agent. Blackboard (#19) is the persistent, queryable shared-memory generalization; an event bus is the ephemeral degenerate case.  → Covered.
+
+**Debate / Society-of-Minds:** Multi-agent debate (Du et al.’s “society of minds,” adversarial angel/devil + judge, ChatEval) = site #22 Debate/Adversarial.  → Covered. Add a caveat: per Zhang et al., “Stop Overvaluing Multi-Agent Debate” (arXiv 2502.08788, NeurIPS 2025 Position track), across 5 MAD methods, 9 benchmarks and 4 models, “MAD often fail to outperform simple single-agent baselines such as Chain-of-Thought and Self-Consistency, even when consuming significantly more inference-time computation”  — no method exceeded a 20% win rate vs. CoT across 36 configurations.
+
+**Kanban / shared-task-board coordination (Hermes, Gastown, etc.):** A durable, often SQLite-backed shared board where workers pull/claim tasks  and “the workflow itself is the controller, not an orchestrator agent.”  This is the same coordination primitive Agent Teams uses (shared task list + self-claim), generalized and framework-agnostic. → Fold into the new Agent Teams page as the general form of the pattern, not a separate entry.
+
+## Details
+
+### Rigorous distinct-vs-rebrand verdicts
+
+|Candidate (source)                                 |Core coordination mechanism                                                                                                                 |Verdict                                                                                        |Action                                   |
+|---------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|-----------------------------------------|
+|**Agent Teams** (Anthropic Claude Code)            |Lead spawns peers; **shared task list w/ self-claim + dependencies**; **direct peer mailbox messaging**; peers fully independent, concurrent|**Genuinely distinct** — no existing entry combines peer messaging + shared claimable task list|**Add** new top-level page (Part IV)     |
+|Subagents (Anthropic)                              |Lead spawns isolated workers; report back only; no peer comms                                                                               |Variant of Orchestrator-Worker                                                                 |Sub-pattern under #5                     |
+|Anthropic research system                          |Lead plans, parallel subagents, citation pass                                                                                               |= Orchestrator-Worker                                                                          |Exemplar under #5                        |
+|LangGraph Supervisor                               |Central router picks next agent                                                                                                             |= #6 Supervisor                                                                                |Covered                                  |
+|LangGraph Swarm                                    |Command-based direct handoffs                                                                                                               |= #9 (handoff)                                                                                 |Covered                                  |
+|LangGraph Hierarchical                             |Nested supervisors                                                                                                                          |= #10                                                                                          |Covered                                  |
+|**LangGraph Network/Mesh**                         |Any agent → any agent, no fixed order                                                                                                       |**Minor gap**                                                                                  |Sub-pattern under control-topology family|
+|CrewAI Crews                                       |Role personas collaborate                                                                                                                   |= #24                                                                                          |Covered (“CrewAI-style”)                 |
+|CrewAI Flows                                       |Event-driven deterministic orchestration + state                                                                                            |= #16 DAG / #26 event-driven                                                                   |Exemplar under #16                       |
+|AutoGen GroupChat                                  |Manager selects next speaker, broadcast                                                                                                     |= #25                                                                                          |Covered (“AutoGen-style”)                |
+|AutoGen round-robin/sequential                     |Speaker-selection strategy                                                                                                                  |Not an architecture                                                                            |Note under #25                           |
+|AutoGen nested chats                               |Workflow-as-agent composition                                                                                                               |Not distinct                                                                                   |Note under #25                           |
+|OpenAI Agents SDK handoffs                         |Model-decided agent-to-agent transfer                                                                                                       |= #9 handoff mechanism                                                                         |See naming fix below                     |
+|SK Sequential/Concurrent/GroupChat/Handoff/Magentic|Five orchestration presets                                                                                                                  |= #2/#4/#25/#9/#6+#17                                                                          |Covered                                  |
+|**Magentic-One**                                   |Orchestrator + Task Ledger + Progress Ledger + re-plan                                                                                      |= Supervisor + Plan-and-Execute hybrid                                                         |Exemplar under #6/#17                    |
+|Google ADK Sequential/Parallel/Loop                |Deterministic workflow agents                                                                                                               |= #2/#4/reflection                                                                             |Covered                                  |
+|Planner–Executor (ReWOO, LLMCompiler, ADaPT)       |Separate plan from execution; variants for parallelism/replan                                                                               |≈ #17 (+#16)                                                                                   |Sub-patterns under #17                   |
+|MoE agent routing                                  |Gating network → experts (intra-model)                                                                                                      |Distinct from MoA; agent form = #3                                                             |Clarifying note                          |
+|Event-driven / pub-sub                             |Async message bus                                                                                                                           |= #26 (+ #19 blackboard)                                                                       |Covered                                  |
+|Debate / Society-of-Minds                          |Agents argue; judge decides                                                                                                                 |= #22                                                                                          |Covered (add efficacy caveat)            |
+|Kanban shared board (Hermes)                       |Durable board, workers pull/claim                                                                                                           |= Agent Teams general form                                                                     |Fold into Agent Teams page               |
+
+### The one substantive taxonomy problem: “Swarm” is overloaded
+
+The site’s #9 “Swarm (Decentralized Handoff)” correctly bundles OpenAI Swarm / Agents SDK handoffs **and** LangGraph swarm — these share one mechanism (single active-agent baton passed peer-to-peer). The risk is that “swarm” is now also used loosely for (a) Claude Code’s Agent Teams (community “TeamCreate/swarm” framing) and (b) large fleets of subagents (“fleet mode,” which spawns tens-to-hundreds of report-back workers).  These are **not** the same mechanism: handoff-swarm passes a single baton with one active agent at a time; Agent Teams runs many agents concurrently against a shared task board with peer messaging; fleet mode is orchestrator-worker at scale. The site should keep #9 strictly as “handoff routing among peers (one active agent at a time)” — consider renaming it **“Handoff Routing (Swarm)”** — and explicitly disambiguate it from Agent Teams (concurrent peers) and from fleet/subagents (isolated report-back).
+
+### Design context worth citing on the new page
+
+Anthropic and others frame the multi-agent decision as a context-sharing trade-off. Cognition’s widely-cited post “Don’t Build Multi-Agents” (June 2025) argues the opposite tack for many cases — Principle 1: “Share context, and share full agent traces, not just individual messages”;  Principle 2: “actions carry implicit decisions, and conflicting decisions carry bad results”  (illustrated by two subagents producing mismatched pieces of a Flappy Bird clone). Agent Teams’ mailbox + shared task list is precisely a response to that critique: it lets independent agents share findings and challenge each other rather than silently diverging. This tension (isolation for context economy vs. peer messaging for coherence) is the right editorial spine for the new page.
+
+## Recommendations
+
+**Stage 1 — Add the confirmed gap (highest priority).**
+Create **“Agent Teams (Peer-Coordinated Teams)”** as a new page in **Part IV — Multi-Agent Collaboration**. Content: lead-formed but peer-coordinated; shared claimable task list with dependencies and self-claim; direct peer-to-peer mailbox messaging (`SendMessage`); concurrent independent context windows. Use Anthropic Claude Code as the reference implementation and Hermes Kanban as the framework-agnostic form. Explicitly contrast with **Subagents** (report-back-only, no peer comms) and with **#9 Handoff Routing** (single active agent). Add a “When NOT to use” note citing the higher token cost — per Anthropic’s Claude Code cost docs, agent teams use roughly 7× the tokens of a single session in plan mode — and the experimental limitations below.
+
+**Stage 2 — Fix the control-topology story.** Introduce a clear conceptual spine (in a Part I or Part IV overview table) distinguishing multi-agent control topologies by *who decides what happens next* and *how agents communicate*:
+
+1. **Orchestrator-Worker (#5)** — central plans, workers isolated, report back (exemplars: Anthropic Subagents, Anthropic research system, Claude Code “fleet mode”).
+1. **Supervisor (#6)** — central, iterative, conversational (exemplars: Magentic-One / SK Magentic, LangGraph supervisor).
+1. **Hierarchical Teams (#10)** — nested supervisors.
+1. **Handoff Routing (#9, renamed from “Swarm”)** — decentralized single-baton handoff (exemplars: OpenAI Agents SDK, LangGraph swarm, SK Handoff; add **Network/Mesh** as a free-for-all sub-variant).
+1. **Agent Teams (new)** — decentralized *concurrent* peers with shared task board + mailbox.
+
+**Stage 3 — Absorb framework names as labeled sub-patterns, not new pages (the anti-bloat move).** Under the relevant existing entries add short “Framework instances” callouts: CrewAI Crews→#24; CrewAI Flows→#16; AutoGen GroupChat→#25; SK/ADK presets→their underlying mechanisms; Magentic-One→#6/#17; Planner-Executor variants (ReWOO/LLMCompiler/ADaPT)→#17. This captures 2026 vocabulary without inflating the pattern count.
+
+**Stage 4 — Merge/deduplicate existing entries under the same rigor.**
+
+- Treat **#5 Orchestrator-Worker** and **#6 Supervisor** as siblings in one “central-control topologies” section (keep both pages but cross-link and share the comparison table above; they differ only in iteration/conversation persistence).
+- Keep **#25 Conversational Multi-Agent** but retitle its framing to “Group Chat / Conversational” and note round-robin/sequential/nested as sub-mechanisms.
+- Add a clarifying note distinguishing **#15 Mixture-of-Agents** (model ensemble) from MoE (intra-model) and from **#3 Routing**.
+- Add the efficacy caveat to **#22 Debate**.
+
+**Benchmarks/thresholds that would change these recommendations:**
+
+- If Anthropic promotes Agent Teams from experimental to GA and publishes a formal protocol/SDK, elevate it from Part IV to Part I core.
+- If a second independent framework ships a *peer-messaging + shared-claimable-board* system (beyond Hermes-style boards), reframe the Agent Teams page generically (“Peer-Coordinated Teams”) rather than as an Anthropic feature.
+- If “network/mesh” acquires a widely-cited canonical implementation, split it from the handoff sub-variant into its own page.
+- If controlled evidence shifts and debate reliably beats strong single agents, soften the #22 caveat.
+
+## Caveats
+
+- **Recency/stability:** Agent Teams is explicitly experimental/research-preview. Official docs list known limitations — no session resumption  with in-process teammates, one team per session, no nested teams, and a fixed lead (“You can’t promote a teammate to lead or transfer leadership”).  The tool surface changed across versions: `TeamCreate`/`TeamDelete` existed before v2.1.178 and have since been removed.   Treat version-specific mechanics as volatile.
+- **Reverse-engineering vs. official sources:** Internal tool names like “TeammateTool” and the “13 operations” figure come from community binary analysis (paddo.dev, nwyin.com, sorrycc), not Anthropic’s official docs, which name `SendMessage`, the task-management tools, and the Agent/Task tool. The $20,000 / 100k-line C-compiler result and the 90.2% research-eval improvement are Anthropic’s own published claims; independent replication is limited.
+- **Model-requirement conflict:** Agent Teams is reliably associated with the Opus 4.6 launch (Feb 5, 2026). One third-party guide claims “Opus 5 required,”  which is unverified and inconsistent with the official docs (teammates can run on Sonnet); do not repeat it.
+- **Token-cost figures vary by source and mode:** Anthropic’s cost docs cite ~7× tokens in plan mode; third-party hands-on writeups estimate 3–4× for general use; the research-system post cites ~15× vs. plain chat. Present the range, not a single number.
+- **Site content depth:** I inventoried the full 70-item taxonomy and read the full text of the most decision-relevant pages (Supervisor, Swarm, Hierarchical Teams, Orchestrator-Worker, Role-Based, Conversational Multi-Agent). Merge judgments for pages I did not read in full (e.g., Blackboard, Market-Based, Event-Driven) rest on the site’s own one-line descriptors plus external definitions; confirm exact on-page wording before writing PRs.
+- **Debate efficacy is contested, not settled** (2025–2026); present it as such on #22.
